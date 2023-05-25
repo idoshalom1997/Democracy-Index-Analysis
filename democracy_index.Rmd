@@ -1,0 +1,166 @@
+---
+title: "LAB 1"
+author: "Daniel Rodan & Ido Shalom"
+date: "2023-05-17"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    tod_depth: 1
+    toc_float: yes
+    df_print: paged
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Clear desk
+rm(list=ls())
+
+#Load Libraries
+library(tidyverse) # This includes dplyr, stringr, ggplot2, .. 
+library(data.table)
+library(rworldmap) # world map
+library(ggthemes)
+library(reshape2) # melt: change data-frame format long/wide
+library(e1071) # skewness and kurtosis
+library(rvest)
+library(corrplot)
+library(moments)
+library(spatstat.geom)
+```
+
+```{css echo=FALSE}
+th, td {
+    padding-left: 20px;
+    text-align: left;
+}
+```
+
+1.a. Loading the data via URL connection:
+```{r, cache=TRUE} 
+democracy <- read_html("https://en.wikipedia.org/wiki/Democracy_Index")
+all.tables = html_nodes(democracy, "table")  
+
+# Use html_table to extract the individual tables from the all.tables object:
+categories <- as.data.frame(html_table(all.tables[3], fill = TRUE))  # Example 
+
+colnames()
+
+
+
+```
+
+1.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+2.a. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+2.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+3.a. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+3.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+4.
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+
+
+5.a. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+5.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+6.a. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+6.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+6.c. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+7 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+
+
+8.a. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
+
+8.b. 
+```{r, cache=TRUE} 
+# YOUR CODE HERE
+```
+
+YOUR ANALYSIS HERE
+
