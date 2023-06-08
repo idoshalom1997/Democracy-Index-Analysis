@@ -1,7 +1,7 @@
 ---
 title: "LAB 1"
 author: "Daniel Rodan & Ido Shalom"
-date: "2023-05-17"
+date: "2023-06-08"
 output:
   html_document:
     theme: spacelab
@@ -38,129 +38,743 @@ th, td {
 }
 ```
 
-1.a. Loading the data via URL connection:
+### Loading data and basic processing:
+**1.a. **
 ```{r, cache=TRUE} 
 democracy <- read_html("https://en.wikipedia.org/wiki/Democracy_Index")
 all.tables = html_nodes(democracy, "table")  
 
 # Use html_table to extract the individual tables from the all.tables object:
-categories <- as.data.frame(html_table(all.tables[3], fill = TRUE))  # Example 
+DF_Regions <- as.data.frame(html_table(all.tables[4], fill = TRUE))
+DF_Countries <- as.data.frame(html_table(all.tables[6], fill = TRUE))
+DF_Components <- as.data.frame(html_table(all.tables[7], fill = TRUE))
 
-colnames()
+# Clean the Components data
+DF_Components <- DF_Components[-c(1:2),]
+DF_Components <- DF_Components[-25,]
+DF_Components <- DF_Components[-73,]
+DF_Components <- DF_Components[-109,]
+DF_Components <- DF_Components[,-2]
 
+# Change Components column names
+colnames(DF_Components)[colnames(DF_Components) == "Elec.toral.pro.cessand.plura.lism"] <- "Electoral_Process_and_Pluralism"
+colnames(DF_Components)[colnames(DF_Components) == "Func.tioningof.govern.ment"] <- "Functioning_of_Government"
+colnames(DF_Components)[colnames(DF_Components) == "Poli.ticalpartici.pation"] <- "Political_Participation"
+colnames(DF_Components)[colnames(DF_Components) == "Poli.ticalcul.ture"] <- "Political_Culture"
+colnames(DF_Components)[colnames(DF_Components) == "Civilliber.ties"] <- "Civil_Liberties"
+
+# Change the columns from char to double
+DF_Components$Electoral_Process_and_Pluralism <- as.numeric(DF_Components$Electoral_Process_and_Pluralism)
+DF_Components$Overall.score <- as.numeric(DF_Components$Overall.score)
+DF_Components$Functioning_of_Government <- as.numeric(DF_Components$Functioning_of_Government)
+DF_Components$Political_Culture <- as.numeric(DF_Components$Political_Culture)
+DF_Components$Political_Participation<- as.numeric(DF_Components$Political_Participation)
+DF_Components$Civil_Liberties <- as.numeric(DF_Components$Civil_Liberties)
+
+# Change Regions column names
+colnames(DF_Regions)[colnames(DF_Regions) == "Coun.tries"] <- "Number_of_Countries"
+
+# Display the top 5 rows for each table
+head(DF_Regions)
+head(DF_Countries)
+head(DF_Components)
+```
+
+**1.b.** 
+```{r, cache=TRUE} 
+# The top 5 countries by democracy index in 2022
+Top5_by_DI <- DF_Countries %>% 
+  select(Country, X2022)%>% 
+  slice_max(order_by = DF_Countries$X2022, n=5)
+Top5_by_DI
+
+# The bottom 5 countries by democracy index in 2022
+Bottom5_by_DI <- DF_Countries %>% 
+  select(Country, X2022)%>% 
+  slice_min(order_by = DF_Countries$X2022, n=5)
+Bottom5_by_DI
+
+# Add the AVG_Index for each country
+DF_Countries$AVG_Index <- round(rowMeans(DF_Countries[,5:19], na.rm = TRUE), digits = 3)
+
+# The top 5 countries by  avg democracy index in 2022
+Top5_by_ADI <- DF_Countries %>% 
+  select(Country, AVG_Index)%>% 
+  slice_max(order_by = DF_Countries$AVG_Index, n=5)
+Top5_by_ADI
+
+# The bottom 5 countries by avg democracy index in 2022
+Bottom5_by_ADI <- DF_Countries %>% 
+  select(Country, AVG_Index)%>% 
+  slice_min(order_by = DF_Countries$AVG_Index, n=5)
+Bottom5_by_ADI
+
+```
+
+### Plotting distributions of groups of countries:
+**2.a.** 
+```{r, cache=TRUE} 
+# Create a boxplot for democracy index by region in 2022
+DI_dist_plot_2022<- ggplot(DF_Countries, aes(x=Region, y=X2022, fill=Region)) + 
+    geom_boxplot() +
+    labs (x="Region", y="Democracy Index Values")+
+    ggtitle("Democracy Index Distribution by Region in 2022")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
+# Display the boxplot    
+DI_dist_plot_2022
+
+# Extract the outlier observations
+boxplot_data <- layer_data(DI_dist_plot_2022, 1)
+outliers <- boxplot_data$outliers
+
+# Filter the data based on outlier values
+outlier_observations <- DF_Countries[DF_Countries$X2022 %in% outliers, ]
+
+# Display the identified outlier observations
+outlier_observations[,c(1,3,5)] 
+
+```
+
+**2.b.** 
+```{r, cache=TRUE} 
+# Create density plots for democracy index by region in 2022
+dp <- ggplot(DF_Countries, aes(x = X2022, fill = Region)) +
+  geom_density(alpha = 0.8) +
+  labs(x = "Democracy Index 2022", y = "Density") +
+  ggtitle("Density Plots of Democracy Index by Region in 2022") +
+  scale_fill_discrete(guide="none")+
+  facet_wrap(~ Region, nrow =3, scales = "free_x")+
+  scale_x_continuous(limits = c(0, 10), breaks = c(0,1,2,3,4,5,6,7,8,9,10))+
+  scale_y_continuous(limits = c(0, 0.7))+
+  theme(panel.spacing = unit(0.9, "lines"))
+
+# Display the plots
+dp
+```
+
+The density that might be looking like the normal distribution, is the one for Sub-Saharan Africa.
+There are other more densities that might look like it as well, like Middle East & North Africa and Western Europe,
+if we ignore the outlier, they look like a shifted normal distribution ($\mu \neq 0$).
+
+```{r, cache=TRUE} 
+# Create a statistics table for each region
+region_statistics <- DF_Countries %>%
+  group_by(Region) %>%
+  summarize(
+    Mean = mean(X2022),
+    Variance = var(X2022),
+    Skewness = skewness(X2022),
+    Kurtosis = kurtosis(X2022)
+  )
+# Display the statistics table
+region_statistics
+```
+
+From the mean we can learn that Europe & North America are the most democratic regions and Middle East and North Africa and Sub-Saharan Africa are the least democratic regions.
+
+The highest variance is for Asia and Australia region, so we can infer that it's mean statistics might not be so significant, it either be a relatively democratic region but also could be a non-democratic one.
+
+By the Skewness, it is clear most of the regions have a left tail which indicates asymmetrical distribution with more smaller and further values from the mean. On North America, the skewness is zero and that is because it has only two countries (so they will be always perfectly symmetrical to the mean).
+
+About the kurtosis, we can say that western Europe has a relatively high kurtosis value which indicated a long tail distribution, as well as to Middle East and North Africa (both because of the outlines). Additionally, the kurtosis for North America is equal to 1, the same as the normal distribution.
+
+Note: by looking of all the statistics values, we might tend to think that North America has a shifted normal distribution, but because we are looking only on two observations, we can not assume that.
+
+### Comparing countries and showing trends in democracy index:
+**3.a.** 
+```{r, cache=TRUE} 
+plot_democracy_index <- function(data, countries) {
+  # Filter the data for the specified countries
+  filtered_data <- data %>%
+    filter(Country %in% countries)
+   
+   # Select the desired columns  
+  selected_columns <- names(filtered_data)[5:19]
+  
+  # Pivot the data
+  data_long <- pivot_longer(filtered_data, cols = all_of(selected_columns), names_to = "Year", values_to = "DemocracyIndex")
+  
+  # Convert Year to numeric
+  data_long$Year <- as.numeric(substring(data_long$Year, 2))
+  
+  # A plot for the DI for each country
+  plot <- ggplot(data_long, aes(x = Year, y = DemocracyIndex, color = Country, group = Country)) +
+    geom_line(size = 1) +
+    geom_point(size = 2.3, shape = 19) +
+    labs(x = "Year", y = "Democracy Index", title = "Democracy Index by Year") +
+    scale_x_continuous(limits = c(2006, 2022), breaks = c(2006,2008,2010,2011,2012,2013,2014,2015,
+                                                          2016,2017,2018,2019,2020,2021,2022))+
+    scale_y_continuous(limits = c(0.5, 10))+
+    theme_bw() +
+    theme(legend.position = "right", axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+  
+  print(plot)
+}
+
+# Display the plot with 5 countries of our choice
+plot_democracy_index(DF_Countries, c("Brazil", "Papua New Guinea", "Serbia", "Ivory Coast", "Luxembourg"))
+
+```
+
+```{r, cache=TRUE} 
+plot_democracy_index_regions <- function(data, regions) {
+  # Filter the data for the specified countries
+  filtered_data <- data %>%
+    filter(Region %in% regions)
+   
+   # Select the desired columns  
+  selected_columns <- names(filtered_data)[3:17]
+  
+  # Pivot the data
+  data_long <- pivot_longer(filtered_data, cols = all_of(selected_columns), names_to = "Year", values_to = "DemocracyIndex")
+  
+  # Convert Year to numeric
+  data_long$Year <- as.numeric(substring(data_long$Year, 2))
+  
+  # A plot for the DI for each country
+  regions_DI_plot <- ggplot(data_long, aes(x = Year, y = DemocracyIndex, color = Region, group = Region)) +
+    geom_line(size = 0.8) +
+    geom_point(size = 1.7, shape = 19) +
+    labs(x = "Year", y = "Democracy Index", title = "Democracy Index by Year for each Region") +
+    scale_x_continuous(limits = c(2006, 2022), breaks = c(2006,2008,2010,2011,2012,2013,2014,2015,
+                                                          2016,2017,2018,2019,2020,2021,2022))+
+    scale_y_continuous(limits = c(0.5, 10))+
+    theme_bw() +
+    theme(legend.position = "right", axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+  
+  print(regions_DI_plot)
+}
+
+# Display the plot for regions
+plot_democracy_index_regions(DF_Regions, DF_Regions$Region)
+```
+
+
+**3.b.** 
+```{r, cache=TRUE} 
+# Calculate the index change for each country between 2006 and 2022
+index_change <- DF_Countries$X2022 - DF_Countries$X2006
+
+# Create a new column in DF_Countries to represent the cluster
+DF_Countries$Cluster <- NA
+
+# clusters 1-2: Countries that their DI increased/decreased by at least 1.5 
+DF_Countries$Cluster[index_change >= 1.5] <- "Large Increase"
+DF_Countries$Cluster[index_change <= -1.5] <- "Large Decrease"
+
+# clusters 3-4: Countries that their DI increased/decreased by [0.75-1.5] 
+DF_Countries$Cluster[index_change >= 0.75 & index_change < 1.5] <- "Moderate Increase"
+DF_Countries$Cluster[index_change <= -0.75 & index_change > -1.5] <- "Moderate Decrease"
+
+# adding a new minimum value column
+DF_Countries <- DF_Countries %>%
+  mutate(Minimum_DI = apply(.[, 5:19], 1, min))
+
+# adding a new maximum value column
+DF_Countries <- DF_Countries %>%
+  mutate(Maximum_DI = apply(.[, 5:19], 1, max))
+
+# Creating helpers for clusters 5 & 6
+min_change_2022 <- DF_Countries$X2022 - DF_Countries$Minimum_DI
+min_change_2006 <- DF_Countries$X2006 - DF_Countries$Minimum_DI
+max_change_2022 <- DF_Countries$Maximum_DI - DF_Countries$X2022
+max_change_2006 <- DF_Countries$Maximum_DI - DF_Countries$X2006
+
+#cluster 5:Countries that decreased by at least 0.75 points after 2006 and then increased by at least 0.75 points in 2022 compared to the lowest point
+DF_Countries$Cluster[min_change_2006 >= 0.75 & min_change_2022 >= 0.75 & is.na(DF_Countries$Cluster)] <- "Recovery"
+
+# Cluster 6: Countries that increased by at least 0.75 points after 2006 and then dropped by at least 0.75 points in 2022 compared to the highest point
+DF_Countries$Cluster[max_change_2006 >= 0.75 & max_change_2022 >= 0.75 & is.na(DF_Countries$Cluster)] <- "Decline"
+
+# Creating helper for cluster 7
+max_min_diff <- DF_Countries$Maximum_DI - DF_Countries$Minimum_DI
+
+# Cluster 7: Countries that had barely changed from 2006 to 2022
+DF_Countries$Cluster[max_min_diff < 0.5 & is.na(DF_Countries$Cluster)] <- "Barely Changed"
+
+# Cluster 8: All other countries
+DF_Countries$Cluster[is.na(DF_Countries$Cluster)] <- "Other"
+
+```
+
+
+```{r}
+# Creating a new DF, for the avg vakues for each cluster
+DF_cluster<- aggregate(DF_Countries[, 5:19], by = list(Cluster = DF_Countries$Cluster), FUN = mean, na.rm = TRUE)
+
+# Display a DF for all clusters
+DF_cluster
+
+```
+
+
+```{r}
+plot_democracy_index_clusters <- function(data, Clusters) {
+  # Filter the data for the specified countries
+  filtered_data <- data %>%
+    filter(Cluster %in% Clusters)
+   
+   # Select the desired columns  
+  selected_columns <- names(filtered_data)[2:16]
+  
+  # Pivot the data
+  data_long <- pivot_longer(filtered_data, cols = all_of(selected_columns), names_to = "Year", values_to = "DemocracyIndex")
+  
+  # Convert Year to numeric
+  data_long$Year <- as.numeric(substring(data_long$Year, 2))
+  
+  # A plot for the DI for each country
+  clusters_DI_plot <- ggplot(data_long, aes(x = Year, y = DemocracyIndex, color = Cluster, group = Cluster)) +
+    geom_line(size = 0.8) +
+    geom_point(size = 1.7, shape = 19) +
+    labs(x = "Year", y = "Democracy Index", title = "Democracy Index by Year for each Cluster") +
+    scale_x_continuous(limits = c(2006, 2022), breaks = c(2006,2008,2010,2011,2012,2013,2014,2015,
+                                                          2016,2017,2018,2019,2020,2021,2022))+
+    scale_y_continuous(limits = c(0.5, 7.5), breaks = c(1,2,3,4,5,6,7))+
+    theme_bw() +
+    theme(legend.position = "right", axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+  
+  print(clusters_DI_plot)
+}
+
+# Display the plot for each cluster
+plot_democracy_index_clusters(DF_cluster, DF_cluster$Cluster)
+```
+
+As expected, for the barely changed the graph is relevantly static. Plus, the graphs of large & moderate increase and large & moderate decrease fits well, and showing the trend in a good way. The recovery and decline, also work well when the first drops and then rise and the other rise and then drops back.
+
+
+### Change in category:
+**4.**
+```{r, cache=TRUE} 
+# Create a new column in DF_Countries to represent the regime type in 2006
+DF_Countries$Regime.type.2006 <- NA
+
+# Categorize each regime type by it's values
+DF_Countries$Regime.type.2006[DF_Countries$X2006 <= 4] <- "Authoritarian"
+DF_Countries$Regime.type.2006[DF_Countries$X2006 > 4 & DF_Countries$X2006 <= 6] <- "Hybrid regime"
+DF_Countries$Regime.type.2006[DF_Countries$X2006 > 6 & DF_Countries$X2006 <= 8] <- "Flawed democracy"
+DF_Countries$Regime.type.2006[DF_Countries$X2006 > 8] <- "Full democracy"
+
+# Create a vector of distinct regime type names
+regime_types <- c("Full democracy", "Flawed democracy", "Hybrid regime", "Authoritarian")
+
+# Create a new matrix to store the estimated probabilities
+probabilities <- matrix(0, nrow = length(regime_types), ncol = length(regime_types))
+colnames(probabilities) <- regime_types
+rownames(probabilities) <- regime_types
+
+# go through each regime type
+for (i in regime_types) {
+  # Subset the data for the specific regime type in 2006
+  subset_2006 <- DF_Countries[DF_Countries$Regime.type.2006 == i, ]
+  # Count the number of countries in each regime type in 2022
+  counts_2022 <- table(subset_2006$Regime.type)
+  # Calculate the probabilities
+  probabilities[i, names(counts_2022)] <- counts_2022 / sum(counts_2022)
+}
+
+# Display the probabilities as data frame
+DF_probabilities <- as.data.frame(probabilities)
+DF_probabilities
+
+# Display the heat map
+heatmap(probabilities, col = colorRampPalette(c("lightgreen", "magenta"))(12),Colv = NA, Rowv = NA, main = "Probabilities  of Regime change", cexRow = 0.615, cexCol = 0.615)
+```
+
+
+### Joining data from additional tables:
+**5.a.** 
+```{r, cache=TRUE} 
+# All the tables from the GDP Wikipedia page
+GDP <- read_html("https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita")
+all.tables.GDP = html_nodes(GDP, "table")
+
+# All the tables from the pop size Wikipedia page
+pop_size <- read_html("https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population")
+all.tables.pop = html_nodes(pop_size, "table")
+
+# All the tables from the crime rate Wikipedia page
+crime_rate <- read_html("https://en.wikipedia.org/wiki/List_of_countries_by_incarceration_rate")
+all.tables.crime = html_nodes(crime_rate, "table")
+
+# All the tables from the area Wikipedia page
+area <- read_html("https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_area")
+all.tables.area = html_nodes(area, "table")
+
+# Extract the tables for countries into a relevant data frames 
+DF_GDP <- as.data.frame(html_table(all.tables.GDP[2], fill = TRUE))
+DF_pop_size <- as.data.frame(html_table(all.tables.pop[2], fill = TRUE)) 
+DF_crime_rate <- as.data.frame(html_table(all.tables.crime[2], fill = TRUE))
+DF_area <- as.data.frame(html_table(all.tables.area[2], fill = TRUE))
+
+# Clean the GDP data
+DF_GDP <- DF_GDP[-1,]
+DF_GDP$Country.Territory <- gsub("\\*$", "", DF_GDP$Country.Territory)
+colnames(DF_GDP)[colnames(DF_GDP) == "Country.Territory"] <- "Country"
+colnames(DF_GDP)[colnames(DF_GDP) == "IMF.5..6."] <- "IMF_Estimate"
+colnames(DF_GDP)[colnames(DF_GDP) == "IMF.5..6..1"] <- "IMF_Year"
+colnames(DF_GDP)[colnames(DF_GDP) == "World.Bank.7."] <- "World_Bank_Estimate"
+colnames(DF_GDP)[colnames(DF_GDP) == "World.Bank.7..1"] <- "World_Bank_Year"
+colnames(DF_GDP)[colnames(DF_GDP) == "CIA.8..9..10."] <- "CIA_Estimate"
+colnames(DF_GDP)[colnames(DF_GDP) == "CIA.8..9..10..1"] <- "CIA_Year"
+DF_GDP$Country <- gsub("\\s*\\([^)]+\\)", "", DF_GDP$Country)
+DF_GDP$Country <- gsub("\\*\\[n \\d+\\]$", "", DF_GDP$Country)
+
+# Clean the population data
+DF_pop_size <- DF_pop_size[-1,]
+DF_pop_size <- DF_pop_size[, !(names(DF_pop_size) == "Notes")]
+colnames(DF_pop_size)[colnames(DF_pop_size) == "Country...Dependency"] <- "Country"
+colnames(DF_pop_size)[colnames(DF_pop_size) == "Rank"] <- "Rank_Pop"
+colnames(DF_pop_size)[colnames(DF_pop_size) == "Population"] <- "Pop_Number"
+colnames(DF_pop_size)[colnames(DF_pop_size) == "Population.1"] <- "Pop_%"
+colnames(DF_pop_size)[colnames(DF_pop_size) == "Source..official.or.from.the.United.Nations."] <- "Source"
+DF_pop_size$Source <- sub("\\[\\d+\\]$", "", DF_pop_size$Source)
+DF_pop_size$Country <- gsub("\\s*\\([^)]+\\)", "", DF_pop_size$Country)
+
+# Clean the crime data
+DF_crime_rate <- DF_crime_rate[-1,]
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Location"] <- "Country"
+DF_crime_rate$Country <- gsub("\\*| \\[Note\\]$", "", DF_crime_rate$Country)
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Count.2."] <- "Crime_Number"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Rate.per.100.000..3."] <- "Crime_Rate_per_100k"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Male.....a."] <- "Male_%"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Female.....4."] <- "Female_%"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "National.....b."] <- "National_%"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Foreign.....5."] <- "Foreign_%"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Occupancy.....6."] <- "Occupancy_%"
+colnames(DF_crime_rate)[colnames(DF_crime_rate) == "Remand.....7."] <- "Remand_%"
+
+# Clean the area data
+DF_area <- DF_area[, !(names(DF_area) == "Notes")]
+colnames(DF_area)[colnames(DF_area) == "Country...Dependency"] <- "Country"
+DF_area$Country <- gsub("\\s*\\([^)]+\\)", "", DF_area$Country)
+colnames(DF_area)[colnames(DF_area) == "Totalin.km2..mi2."] <- "Total_skm"
+DF_area$Total_skm <- gsub("\\s*\\([^)]+\\)", "", DF_area$Total_skm)
+DF_area$Total_skm <- gsub("<\\s", "", DF_area$Total_skm)
+colnames(DF_area)[colnames(DF_area) == "Landin.km2..mi2."] <- "Land_skm"
+DF_area$Land_skm <- gsub("\\s*\\([^)]+\\)", "", DF_area$Land_skm)
+DF_area$Land_skm <- gsub("<", "", DF_area$Land_skm)
+colnames(DF_area)[colnames(DF_area) == "Waterin.km2..mi2."] <- "Water_skm"
+DF_area$Water_skm <- gsub("\\s*\\([^)]+\\)", "", DF_area$Water_skm)
+colnames(DF_area)[colnames(DF_area) == "X.water"] <- "Water_%"
+colnames(DF_area)[colnames(DF_area) == "Rank"] <- "Rank_area"
+
+# more cleaning
+DF_GDP$Country <- gsub("\\ ", "", DF_GDP$Country)
+DF_GDP$Country <- gsub("\\*", "", DF_GDP$Country)
+
+# more cleaning
+DF_crime_rate$Country <-gsub("\\ ", "", DF_crime_rate$Country)
+DF_crime_rate$Country <-gsub("\\*", "", DF_crime_rate$Country)
+DF_crime_rate$Country <-gsub(" \\[Note]", "", DF_crime_rate$Country)
+
+# Join the data frames (Do you wanna see me merge? [N.Kirel])
+DF_merged <- merge(DF_Countries, DF_GDP, by = "Country", all = TRUE)
+DF_merged <- merge(DF_merged, DF_crime_rate, by = "Country", all = TRUE)
+DF_merged <- merge(DF_merged, DF_pop_size, by = "Country", all = TRUE)
+DF_merged <- merge(DF_merged, DF_area, by = "Country", all = TRUE)
+
+# Replace - values to NA
+DF_merged[DF_merged == "—"] <- NA
+DF_merged[DF_merged == "–"] <- NA
+
+# Display the first rows of the DF
+head(DF_merged)
+```
+
+
+**5.b.** 
+```{r, cache=TRUE, message=FALSE} 
+# Create a new mini DF for the two columns
+DF_helper <- DF_merged[,c("CIA_Estimate", "X2022")]
+DF_helper <- na.omit(DF_helper)
+
+# change form a "characters" variables to "double" variables
+DF_helper$New_CIA_Estimate <- as.numeric(gsub(",", "", DF_helper$CIA_Estimate))
+
+# Create the linear regression for DI & GDP
+DI_GDP_Reg <- lm(New_CIA_Estimate~X2022,data = DF_helper)
+summary(DI_GDP_Reg)
+
+
+# Create a scatter plot of DI & GDP
+DI_GDP_scatter_plot <- ggplot(DF_helper, aes(x=X2022, y=New_CIA_Estimate)) +
+  geom_point() +
+  geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+  labs(x = "Democarcy Index 2022", y = "CIA GDP Estimator", title = "GDP & DI Regression")
+
+# Display the plot
+DI_GDP_scatter_plot
+
+```
+
+
+First of all, we can see that for countries with ~ 1.27 (approx.) Democracy index
+or lower, we get a negative GDP value estimator.
+
+If we will dug deeper, we can notice that there is a positive connection between the Democracy index and the GDP (The regression intercept is not statistically significant).
+
+
+
+```{r, message=FALSE}
+# Create a new mini DF for the two columns
+DF_helper_2 <- DF_merged[,c("Crime_Rate_per_100k", "X2022")]
+DF_helper_2 <- na.omit(DF_helper_2)
+
+# change form a "characters" variables to "double" variables
+DF_helper_2$New_Crime_Rate_per_100k <- as.numeric(DF_helper_2$Crime_Rate_per_100k)
+
+# Create the linear regression for DI & Crime
+DI_Crime_Reg <- lm(New_Crime_Rate_per_100k~X2022,data = DF_helper_2)
+summary(DI_Crime_Reg)
+
+# Create a scatter plot of DI & Crime
+DI_Crime_scatter_plot <- ggplot(DF_helper_2, aes(x=X2022, y=New_Crime_Rate_per_100k)) +
+  geom_point() +
+  geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+  labs(x = "Democarcy Index 2022", y = "Crime Rate per 100k", title = "DI & Crime Regression")
+
+DI_Crime_scatter_plot
+```
+
+We may want to infer that there isn't a significant connection between the country's 
+democracy level to the relative number of crimes in it, but the regression coefficient is not statistically significant so we can not assume that for sure.
+
+### Empirical Cumulative Distribution Function (CDF):
+**6.a.** 
+```{r, cache=TRUE} 
+# Create a copied vector and then sorting it
+CIA_Estimates <- DF_helper$New_CIA_Estimate
+Sorted_CIA_Estimates <- sort(CIA_Estimates)
+n <- length(Sorted_CIA_Estimates)
+# Create the empirical CDF
+Empirical_CIA_CDF <- (1:n) / n
+
+DF_CDF <- data.frame(x = Sorted_CIA_Estimates, cdf = Empirical_CIA_CDF)
+
+# Visualize the CDF plot
+GDP_CDF_Plot <- ggplot(DF_CDF, aes(x = Sorted_CIA_Estimates, y = Empirical_CIA_CDF)) +
+  geom_step() +
+  labs(x = "GDP Estimate Values", y = "Empirical CDF", title = "GDP Empirical CDF") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
+GDP_CDF_Plot
+
+```
+
+
+**6.b.** 
+```{r, cache=TRUE} 
+# Create a new mini DF for the two columns
+DF_GDP_Pop <- DF_merged[,c("Pop_Number", "CIA_Estimate")]
+DF_GDP_Pop <- na.omit(DF_GDP_Pop)
+
+# change form a "characters" variables to "double" variables
+DF_GDP_Pop$New_CIA_Estimate_2 <- as.numeric(gsub(",", "", DF_GDP_Pop$CIA_Estimate))
+DF_GDP_Pop$New_Pop_Number <- as.numeric(gsub(",", "", DF_GDP_Pop$Pop_Number))
+
+# sorting the data by GDP Estimate
+DF_GDP_Pop <- DF_GDP_Pop[order(DF_GDP_Pop$New_CIA_Estimate_2),]
+DF_GDP_Pop <- DF_GDP_Pop[DF_GDP_Pop$Pop_Number != "8,032,932,000",]
+
+# Create the empirical CDF for pop & GDP
+DF_GDP_Pop$Empirical_CIA_CDF_Pop <- DF_GDP_Pop$New_Pop_Number / (sum(DF_GDP_Pop$New_Pop_Number))
+DF_GDP_Pop$Cum_Empirical_CIA_CDF_Pop <- cumsum(DF_GDP_Pop$Empirical_CIA_CDF_Pop)
+
+# Visualize the CDF plot for pop & GDP
+GDP_Pop_CDF_Plot <- ggplot(DF_GDP_Pop, aes(x = New_CIA_Estimate_2, y = Cum_Empirical_CIA_CDF_Pop)) +
+  geom_step() +
+  labs(x = "GDP Estimate Values", y = "Population Percentage", title = "GDP Empirical CDF by Population", caption = "Note: 6,600-India, 17,600-China, 63,700-USA") +
+  #theme_minimal()
+  scale_x_continuous(labels = function(x) format(x, scientific = FALSE), breaks = c(6600,17600,50000,63700,100000))+
+  theme(legend.position = "right", axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
+GDP_Pop_CDF_Plot 
 
 
 ```
 
-1.b. 
+The differences between this distribution and the former are because now we take under consideration the relative part of a specific country population from the entire world, while before we just selected a country randomly, assuming the probabilities are equal. 
+This distribution is more realistic and accurate, we also can see the big jumps in high population countries like China, India & USA. 
+
+
+
+**6.c.** 
 ```{r, cache=TRUE} 
 # YOUR CODE HERE
+# Create a new mini DF for the two columns
+DF_GDP_Land <- DF_merged[,c("Land_skm", "CIA_Estimate")]
+DF_GDP_Land <- na.omit(DF_GDP_Land)
+
+# change form a "characters" variables to "double" variables
+DF_GDP_Land$New_CIA_Estimate_3 <- as.numeric(gsub(",", "", DF_GDP_Land$CIA_Estimate))
+DF_GDP_Land$New_Land_skm <- as.integer(gsub(",", "", DF_GDP_Land$Land_skm))
+
+# sorting the data by GDP Estimate
+DF_GDP_Land <- DF_GDP_Land[order(DF_GDP_Land$New_CIA_Estimate_3),]
+DF_GDP_Land <- DF_GDP_Land[DF_GDP_Land$Land_skm != "148,940,000",]
+DF_GDP_Land <- DF_GDP_Land[DF_GDP_Land$Land_skm != "",]
+
+# Create the empirical CDF for pop & GDP
+DF_GDP_Land$Empirical_CIA_CDF_Land <- DF_GDP_Land$New_Land_skm / (sum(DF_GDP_Land$New_Land_skm))
+DF_GDP_Land$Cum_Empirical_CIA_CDF_Land <- cumsum(DF_GDP_Land$Empirical_CIA_CDF_Land)
+
+# Visualize the CDF plot for pop & GDP
+GDP_Land_CDF_Plot <- ggplot(DF_GDP_Land, aes(x = New_CIA_Estimate_3, y = Cum_Empirical_CIA_CDF_Land)) +
+  geom_step() +
+  labs(x = "GDP Estimate Values", y = "Land Percentage", title = "GDP Empirical CDF by Land", caption = "Note:  17,600-China, 28,000-Russia 63,700-USA") +
+  scale_x_continuous(labels = function(x) format(x, scientific = FALSE), breaks = c(17600,28000,50000,63700,100000))+
+  theme(legend.position = "right", axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
+GDP_Land_CDF_Plot
 ```
 
-YOUR ANALYSIS HERE
+The differences between this distribution and the former are because now we take under consideration the relative part of a the country land area from the entire world, while before we just selected a country randomly, assuming the probabilities are equal. This distribution is more realistic and accurate (as well as b), we also can see the big jumps in high land area countries like China, Russia & USA. 
 
 
-2.a. 
+```{r}
+# Extracting the quantails for each section
+GDP_0.25 <- max(DF_CDF$x[DF_CDF$cdf <= 0.25])
+GDP_Median <- max(DF_CDF$x[DF_CDF$cdf <= 0.5])
+GDP_0.75 <- max(DF_CDF$x[DF_CDF$cdf <= 0.75])
+
+Pop_0.25 <- max(DF_GDP_Pop$New_CIA_Estimate_2[DF_GDP_Pop$Cum_Empirical_CIA_CDF_Pop <= 0.25])
+Pop_Median <- max(DF_GDP_Pop$New_CIA_Estimate_2[DF_GDP_Pop$Cum_Empirical_CIA_CDF_Pop <= 0.5])
+Pop_0.75 <- max(DF_GDP_Pop$New_CIA_Estimate_2[DF_GDP_Pop$Cum_Empirical_CIA_CDF_Pop <= 0.75])
+
+Land_0.25 <- max(DF_GDP_Land$New_CIA_Estimate_3[DF_GDP_Land$Cum_Empirical_CIA_CDF_Land <= 0.25])
+Land_Median <- max(DF_GDP_Land$New_CIA_Estimate_3[DF_GDP_Land$Cum_Empirical_CIA_CDF_Land <= 0.5])
+Land_0.75 <- max(DF_GDP_Land$New_CIA_Estimate_3[DF_GDP_Land$Cum_Empirical_CIA_CDF_Land <= 0.75])
+
+# Display a DF for all quantiles
+all_quantails <- c(GDP_0.25,Land_0.25,Pop_0.25,GDP_Median,Land_Median,Pop_Median,GDP_0.75,Land_0.75,Pop_0.75)
+all_quantails_mat <- matrix(all_quantails, nrow = 3, ncol = 3, byrow = TRUE)
+DF_all_quantails <- as.data.frame(all_quantails_mat)
+rownames(DF_all_quantails) <- c("Q-25", "Median", "Q-75")
+colnames(DF_all_quantails) <- c("GDP", "Land", "Pop")
+DF_all_quantails
+```
+All the quantiles are different.
+
+For the first column (section a), there won't be any special results because the countries are selected uniformly.
+
+In the second column, when we calculate by land, the first quantile is bigger, which means that countries with relatively small land will have a relatively smaller GDP (because a lot more countries got under this quantile). In the median, we can experience something a bit odd, when a country in the 43.8 quantile represent the median, that is bacause the next country is China that make a jump straight to 50.08 quantile. 
+
+In the third column, when we calculate by population the first quantile is bigger but the median is acttualy smaller than the first column. That is because of India that have a very large population number but relatively small GDP (it caused a jump from the 0.22 quantile straight to the 39.99 quantile).  
+
+
+### Displaying data on the world map:
+**7.** 
 ```{r, cache=TRUE} 
-# YOUR CODE HERE
+# Load the world map data
+data("countryExData")
+
+#change the two specific country names
+DF_Countries$Country[DF_Countries$Country == " North Macedonia"] <- "Macedonia"
+DF_Countries$Country[DF_Countries$Country == "Eswatini"] <- "Swaziland"
+
+# Create a new mini DF
+DF_World<- DF_Countries[,c("Country", "AVG_Index")]
+
+# Join with country data
+WorldMap <- joinCountryData2Map(DF_World,countryExData, joinCode = "NAME", nameJoinColumn = "Country")
+
+# Display the world map
+mapCountryData(WorldMap, nameColumnToPlot = "AVG_Index", catMethod = "quantiles", mapTitle = "Average Democracy Index", colourPalette = "topo", addLegend = TRUE)
+
+
 ```
 
-YOUR ANALYSIS HERE
+As can be seen from the map, we can see that the most democratic continents are North America, Australia & Europe.
+The less democratic continent is Asia (excluding India & Japan). The most undemocratic countries in Asia are in the middle east (excluding Israel).
+Africa is the most diverse continent democracy index wise.
 
 
-2.b. 
+```{r}
+DF_Countries$diff <- DF_Countries$X2022 - DF_Countries$X2006
+
+# Create a new mini DF
+DF_World_2<- DF_Countries[,c("Country", "diff")]
+
+# Join with country data
+WorldMap <- joinCountryData2Map(DF_World_2,countryExData, joinCode = "NAME", nameJoinColumn = "Country")
+
+# Display the world map
+mapCountryData(WorldMap, nameColumnToPlot = "diff", catMethod = "quantiles", mapTitle = "Differences in Democracy Index", colourPalette = "topo", addLegend = TRUE)
+```
+
+As can be seen from this map, we can infer that overall democracy in the entire world is getting weaker and weaker.
+An exception is Africa, the democracy index there gone higher.
+But overall, this map colors are much more lighter than the previous map, so we can see that the democracy index for most countries has gone down in the past 16 years, an alarming trend.
+
+### Coponents of the Demography Index:
+**8.a.** 
 ```{r, cache=TRUE} 
-# YOUR CODE HERE
+
+# Merging the data
+DF_merged <- merge(DF_merged, DF_Components, by = "Country", all = TRUE)
+
+# Display the top rows
+head(DF_merged)
+
+DF_Democracy_Components <- data.frame(DF_Components[6:10])
+DC_corr_mat <- cor(DF_Democracy_Components)
+
+# Create columns and row shortcuts names
+colnames(DC_corr_mat) <- c("EP", "FG", "PP", "PC", "CL")
+rownames(DC_corr_mat) <- c("EP", "FG", "PP", "PC", "CL")
+
+# Display the cor matrix
+corrplot(DC_corr_mat, method = "color",col = colorRampPalette(c("blue", "white", "red"))(100), 
+         tl.col = "black", 
+         tl.srt = 90,
+         tl.cex = 0.8,
+         addCoef.col = "black", 
+         number.cex = 0.8,   
+         main = "Democracy Components Correlation Matrix",
+         cex.main = 1.2,
+         mar = c(0, 0, 1, 0))
+
 ```
 
-YOUR ANALYSIS HERE
-
-3.a. 
+**8.b.** 
 ```{r, cache=TRUE} 
-# YOUR CODE HERE
+# Create a mini DF for the relevant varriables
+DF_helper_4 <- DF_merged[,c("Country","CIA_Estimate","Electoral_Process_and_Pluralism","Functioning_of_Government","Political_Participation","Political_Culture","Civil_Liberties")]
+
+# Remove NA's and clean the data
+DF_helper_4 <- na.omit(DF_helper_4)
+DF_helper_4$CIA_Estimate <- as.numeric(gsub(",", "", DF_helper_4$CIA_Estimate))
+
+# Create the regression
+Comp_Reg <- lm(DF_helper_4$CIA_Estimate~DF_helper_4$Electoral_Process_and_Pluralism+DF_helper_4$Functioning_of_Government+DF_helper_4$Political_Participation+DF_helper_4$Political_Culture+DF_helper_4$Civil_Liberties)
+
+# Display regression results
+summary(Comp_Reg)
+
+# The coefficients with significant level of 0.01
+Sig_Coeff <- summary(Comp_Reg)$coefficients[summary(Comp_Reg)$coefficients[, "Pr(>|t|)"] < 0.01, ]
+
+Sig_Coeff_p_values <- summary(Comp_Reg)$coefficients[, "Pr(>|t|)"]
+
+# Create a table with significant coefficients names and p-values
+significant_coeffs_table <- data.frame(P_Value = Sig_Coeff_p_values[Sig_Coeff_p_values < 0.01])
+
+# Display the table
+options(scipen = 999)
+significant_coeffs_table
+
+# Calculate 5 countries with the highest and lowest residuals
+Com_Reg_residuals <- rstandard(Comp_Reg)
+top5_Com_Reg_residuals <- DF_helper_4[order(Com_Reg_residuals, decreasing = TRUE), ][1:5, ]
+bottom5_Com_Reg_residuals <- DF_helper_4[order(Com_Reg_residuals), ][1:5, ]
+
+# Display the top & bottom 5 countries
+top5_Com_Reg_residuals
+bottom5_Com_Reg_residuals
 ```
+For the top 5 countries, factors that leads to high GDP can be economic policies (fiscal and monetary policies, tax rates, trade regulations and so on), natural resources, international trade and macroeconomic factors.
 
-YOUR ANALYSIS HERE
-
-
-3.b. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-4.
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-
-
-5.a. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-5.b. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-6.a. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-6.b. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-6.c. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-7 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-
-
-8.a. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
-
-8.b. 
-```{r, cache=TRUE} 
-# YOUR CODE HERE
-```
-
-YOUR ANALYSIS HERE
-
+For the bottom 5 countries, factors that leads to low GDP can be environmental challenges, economic challenges such as high levels of unemployment & inflation and underdeveloped technology industry.
