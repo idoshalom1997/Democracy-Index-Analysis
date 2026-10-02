@@ -1,5 +1,7 @@
 # Democracy Index Analysis
 
+**Is the world becoming less democratic, and does democracy go hand in hand with wealth?**
+
 An R analysis of the Economist Intelligence Unit's **Democracy Index** for 167 countries from 2006 to 2022. It looks at how democracy differs between regions, which countries rose or fell, how often countries move between regime types, and how democracy relates to GDP, incarceration, population and land area. The data is scraped from Wikipedia and combined from five tables.
 
 **[View the full report →](https://idoshalom1997.github.io/Democracy-Index-Analysis/)**
@@ -54,4 +56,4 @@ R · tidyverse (dplyr, ggplot2, tidyr) · rvest for web scraping · rworldmap ·
 
 ## Background
 
-Written in May-June 2023 by **Ido Shalom and Daniel Rodan** for the *Data Analysis with R* course at the Hebrew University of Jerusalem (B.Sc. Statistics & Data Science).
+Built in May-June 2023 by **Ido Shalom and Daniel Rodan** during the *Data Analysis with R* course at the Hebrew University of Jerusalem (B.Sc. Statistics & Data Science).
