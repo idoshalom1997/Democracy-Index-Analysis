@@ -1,5 +1,5 @@
 ---
-title: "LAB 1"
+title: "Democracy Index Analysis"
 author: "Daniel Rodan & Ido Shalom"
 date: "2023-06-08"
 output:
@@ -9,7 +9,6 @@ output:
     tod_depth: 1
     toc_float: yes
     df_print: paged
-    css: styles.css
 ---
 
 ```{r setup, include=FALSE}
@@ -39,9 +38,11 @@ th, td {
 ```
 
 ### Loading data and basic processing:
+All Wikipedia pages are read as they were in May-June 2023, when this analysis was written, so the results can be reproduced.
+
 **1.a. **
 ```{r, cache=TRUE} 
-democracy <- read_html("https://en.wikipedia.org/wiki/Democracy_Index")
+democracy <- read_html("https://en.wikipedia.org/w/index.php?oldid=1158913621")
 all.tables = html_nodes(democracy, "table")  
 
 # Use html_table to extract the individual tables from the all.tables object:
@@ -388,19 +389,19 @@ heatmap(probabilities, col = colorRampPalette(c("lightgreen", "magenta"))(12),Co
 **5.a.** 
 ```{r, cache=TRUE} 
 # All the tables from the GDP Wikipedia page
-GDP <- read_html("https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita")
+GDP <- read_html("https://en.wikipedia.org/w/index.php?oldid=1156826767")
 all.tables.GDP = html_nodes(GDP, "table")
 
 # All the tables from the pop size Wikipedia page
-pop_size <- read_html("https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population")
+pop_size <- read_html("https://en.wikipedia.org/w/index.php?oldid=1159156936")
 all.tables.pop = html_nodes(pop_size, "table")
 
 # All the tables from the crime rate Wikipedia page
-crime_rate <- read_html("https://en.wikipedia.org/wiki/List_of_countries_by_incarceration_rate")
+crime_rate <- read_html("https://en.wikipedia.org/w/index.php?oldid=1153706416")
 all.tables.crime = html_nodes(crime_rate, "table")
 
 # All the tables from the area Wikipedia page
-area <- read_html("https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_area")
+area <- read_html("https://en.wikipedia.org/w/index.php?oldid=1157625444")
 all.tables.area = html_nodes(area, "table")
 
 # Extract the tables for countries into a relevant data frames 
